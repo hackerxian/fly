@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cessna 172 飞行模拟器</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #e8ecf0;
+        font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
+      #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+      .glass { background: rgba(10, 14, 20, 0.62); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; }
+
+      /* 底部：状态栏 + 仪表 */
+      #panel { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; flex-direction: column;
+        align-items: center; gap: 6px; pointer-events: none; }
+      #status { display: flex; gap: 14px; align-items: center; padding: 4px 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      #status b { font-weight: 600; color: #fff; }
+      .badge { padding: 0 8px; border-radius: 4px; font-weight: 600; color: #111; }
+      .amber { background: #f0b429; } .cyan { background: #35d0e0; } .grey { background: #9aa4ae; }
+      .red { background: #e5484d; color: #fff; animation: blink 0.5s steps(2) infinite; }
+      @keyframes blink { 50% { opacity: 0.35; } }
+
+      #help { position: fixed; top: 12px; left: 12px; padding: 10px 14px; pointer-events: none; }
+      #help table { border-collapse: collapse; }
+      #help td { padding: 1px 0; }
+      #help td:first-child { padding-right: 12px; color: #9fd2ff; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+      #help h4 { margin: 6px 0 2px; font-size: 12px; color: #8b97a3; font-weight: 500; }
+      #help h4:first-child { margin-top: 0; }
+
+      #toast { position: fixed; top: 18%; left: 50%; transform: translateX(-50%); padding: 8px 20px; font-size: 16px;
+        opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+      #toast.show { opacity: 1; }
+
+      #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5, 8, 12, 0.45); }
+      #overlay > div { padding: 30px 44px; text-align: center; max-width: 520px; }
+      #overlay h1 { margin: 0 0 6px; font-size: 28px; font-weight: 600; letter-spacing: 1px; }
+      #overlay p { margin: 6px 0 0; color: #b4bec8; font-size: 14px; }
+      #overlay button { margin-top: 20px; padding: 10px 34px; font-size: 16px; font-weight: 600; color: #08121c; background: #6cc4ff;
+        border: 0; border-radius: 8px; cursor: pointer; }
+      #overlay button:hover { background: #8fd3ff; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+
+    <div id="help" class="glass">
+      <h4>飞行操纵</h4>
+      <table>
+        <tr><td>↑ ↓</td><td>推杆 / 拉杆（↓ 抬头）</td></tr>
+        <tr><td>← →</td><td>左 / 右压坡度</td></tr>
+        <tr><td>A D</td><td>方向舵（地面转弯）</td></tr>
+        <tr><td>G</td><td>操纵辅助（地面保持方向、防拉杆失速）开 / 关</td></tr>
+        <tr><td>W S</td><td>加 / 减油门</td></tr>
+        <tr><td>[ ]</td><td>俯仰配平 低头 / 抬头</td></tr>
+        <tr><td>F V</td><td>襟翼 放 / 收</td></tr>
+        <tr><td>空格</td><td>刹车（按住）</td></tr>
+        <tr><td>B</td><td>停机刹车</td></tr>
+        <tr><td>E</td><td>发动机 启动 / 关车</td></tr>
+        <tr><td>Z</td><td>自动驾驶（方向键调航向 / 高度）</td></tr>
+        <tr><td>M</td><td>鼠标杆（Esc 退出）</td></tr>
+      </table>
+      <h4>视角与环境</h4>
+      <table>
+        <tr><td>C</td><td>切换视角：尾随 / 座舱 / 塔台</td></tr>
+        <tr><td>鼠标</td><td>拖动环视，滚轮缩放，双击复位</td></tr>
+        <tr><td>T X L</td><td>时间 / 天气 / 着陆灯</td></tr>
+        <tr><td>1 2 3</td><td>跑道起飞 / 五边进近 / 空中巡航</td></tr>
+        <tr><td>P R H</td><td>暂停 / 重置 / 隐藏本说明</td></tr>
+      </table>
+    </div>
+
+    <div id="toast" class="glass"></div>
+
+    <div id="panel">
+      <div id="status" class="glass"></div>
+      <canvas id="gauges"></canvas>
+    </div>
+
+    <div id="overlay">
+      <div class="glass">
+        <h1 id="title">Cessna 172 飞行模拟器</h1>
+        <p id="subtitle">真实气动数据驱动的六自由度飞行模型。松开停机刹车 (B)，加满油门 (W)，55 节时轻拉杆 (↓) 离地，离地后用 ← → 保持机翼水平。</p>
+        <button id="start">开始飞行</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
