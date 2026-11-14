@@ -61,6 +61,22 @@ const HEIGHT_GLSL = /* glsl */ `
   float terrainH(vec2 p) { return texture2D(uHeightMap, (p - uWorld.xy) / uWorld.z + 0.5).r; }
 `;
 
+// 逐级 2×2 平均降采样，转成半精度浮点
+function halfFloatMips(data) {
+  const mips = [];
+  for (let size = RES, src = data; ; size >>= 1) {
+    mips.push({ data: Uint16Array.from(src, THREE.DataUtils.toHalfFloat), width: size, height: size });
+    if (size === 1) return mips;
+    const s = size >> 1, dst = new Float32Array(s * s);
+    for (let j = 0; j < s; j++)
+      for (let i = 0; i < s; i++) {
+        const k = 2 * j * size + 2 * i;
+        dst[j * s + i] = (src[k] + src[k + 1] + src[k + size] + src[k + size + 1]) / 4;
+      }
+    src = dst;
+  }
+}
+
 // 在标准 PBR 材质上注入着色器片段，光照、阴影、雾仍由 three 处理
 function inject(material, uniforms, { vertex, color, normal, pars = '' }) {
   material.customProgramCacheKey = () => color; // 回调源码相同，需另给缓存键，否则不同材质会共用同一个着色器程序
@@ -154,10 +170,13 @@ const waterMaterial = (shared, time) =>
 export class Terrain {
   constructor(scene) {
     this.data = generate();
-    const heightMap = new THREE.DataTexture(this.data, RES, RES, THREE.RedFormat, THREE.FloatType);
+    // 半精度浮点纹理可在所有 WebGL2 设备上线性过滤（iPad 不支持 32 位浮点过滤），多级纹理在 CPU 上生成
+    const mipmaps = halfFloatMips(this.data);
+    const heightMap = new THREE.DataTexture(mipmaps[0].data, RES, RES, THREE.RedFormat, THREE.HalfFloatType);
+    heightMap.mipmaps = mipmaps;
     heightMap.minFilter = THREE.LinearMipmapLinearFilter;
     heightMap.magFilter = THREE.LinearFilter;
-    heightMap.generateMipmaps = true;
+    heightMap.generateMipmaps = false;
     heightMap.needsUpdate = true;
     const shared = {
       uHeightMap: { value: heightMap },

@@ -2,7 +2,8 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Cessna 172 飞行模拟器</title>
     <style>
       html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #e8ecf0;
@@ -39,6 +40,24 @@
         border: 0; border-radius: 8px; cursor: pointer; }
       #overlay button:hover { background: #8fd3ff; }
       [hidden] { display: none !important; }
+
+      /* 触屏操作：左下摇杆、右下油门、右侧按钮 */
+      #touch { display: none; }
+      #stick { position: fixed; left: 28px; bottom: 28px; width: 150px; height: 150px; border-radius: 50%; }
+      #knob { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.35); pointer-events: none; }
+      #throttle { position: fixed; right: 28px; bottom: 28px; width: 56px; height: 190px; overflow: hidden; }
+      #throttle-fill { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(108, 196, 255, 0.5); pointer-events: none; }
+      #throttle span { position: absolute; top: 6px; width: 100%; text-align: center; font-size: 12px; pointer-events: none; }
+      #buttons { position: fixed; right: 28px; bottom: 232px; display: grid; grid-template-columns: repeat(3, 66px); gap: 6px; }
+      #buttons button { height: 42px; padding: 0; color: #e8ecf0; font: inherit; font-size: 13px; }
+      #buttons button:active { background: rgba(108, 196, 255, 0.45); }
+      @media (any-pointer: coarse) {
+        html, body { touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        #touch { display: block; }
+        #help { display: none; }
+      }
+      @media (any-pointer: coarse) and (orientation: portrait) { #panel { bottom: 200px; } #buttons { bottom: 340px; } }
     </style>
   </head>
   <body>
@@ -75,6 +94,12 @@
     <div id="panel">
       <div id="status" class="glass"></div>
       <canvas id="gauges"></canvas>
+    </div>
+
+    <div id="touch">
+      <div id="stick" class="glass"><div id="knob"></div></div>
+      <div id="throttle" class="glass"><div id="throttle-fill"></div><span>油门</span></div>
+      <div id="buttons"></div>
     </div>
 
     <div id="overlay">

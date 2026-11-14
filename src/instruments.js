@@ -1,4 +1,5 @@
 import { KT, FT } from './physics/aircraft.js';
+import { TOUCH } from './input.js';
 
 const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -211,14 +212,14 @@ export class Instruments {
 
   resize() {
     const dpr = Math.min(devicePixelRatio, 2);
-    const d = (this.d = Math.round(clamp(innerWidth / 8, 84, 168))); // 单个仪表直径 (CSS px)
+    const d = (this.d = Math.round(clamp(innerWidth / (TOUCH ? 13 : 8), 84, 168))); // 单个仪表直径 (CSS px)，触屏留出摇杆和油门的位置
     this.scale = (d / 2) * dpr;
     this.canvas.width = d * GAUGES.length * dpr;
     this.canvas.height = d * dpr;
     this.canvas.style.width = d * GAUGES.length + 'px';
     // 静态表盘预渲染到离屏画布
     this.faces = GAUGES.map((gauge) => {
-      const c = new OffscreenCanvas(d * dpr, d * dpr), g = c.getContext('2d');
+      const c = Object.assign(document.createElement('canvas'), { width: d * dpr, height: d * dpr }), g = c.getContext('2d');
       this.frame(g, 0);
       g.fillStyle = '#2a2c30';
       g.beginPath();

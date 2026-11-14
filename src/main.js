@@ -7,7 +7,7 @@ import { Sky } from './world/sky.js';
 import { Scenery, isPaved } from './world/scenery.js';
 import { AircraftModel } from './aircraft/model.js';
 import { ViewCamera } from './camera.js';
-import { Input } from './input.js';
+import { Input, TOUCH } from './input.js';
 import { Instruments } from './instruments.js';
 import { Sound } from './audio.js';
 
@@ -16,10 +16,12 @@ const DEG = Math.PI / 180;
 const DT = 1 / 240; // 物理固定步长
 
 // —— 渲染器：HDR 缓冲 + 对数深度（近到座舱、远到百公里外的海平线）——
+const probe = document.createElement('canvas').getContext('webgl2');
+const hdr = probe?.getExtension('EXT_color_buffer_float') || probe?.getExtension('EXT_color_buffer_half_float'); // 不支持时退回 8 位缓冲
 const renderer = new THREE.WebGLRenderer({
-  canvas: $('view'), antialias: true, logarithmicDepthBuffer: true, outputBufferType: THREE.HalfFloatType,
+  canvas: $('view'), antialias: true, logarithmicDepthBuffer: true, outputBufferType: hdr ? THREE.HalfFloatType : THREE.UnsignedByteType,
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, TOUCH ? 1.5 : 2)); // 平板降低分辨率保证帧率
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
 
@@ -120,7 +122,9 @@ const input = new Input({
 const badge = (on, cls, label) => (on ? `<span class="badge ${cls}">${label}</span>` : '');
 function status() {
   const c = ac.controls;
-  const html = `油门 <b>${Math.round(c.throttle * 100)}%</b>
+  const html = `空速 <b>${Math.round(ac.ias / KT)} kt</b>
+    高度 <b>${Math.round(ac.altitude / FT)} ft</b>
+    油门 <b>${Math.round(c.throttle * 100)}%</b>
     襟翼 <b>${Math.round(ac.flap * 30)}°</b>
     配平 <b>${(c.trim * 100).toFixed(0)}</b>
     燃油 <b>${Math.round(ac.fuel / 0.72)} L</b>
@@ -140,6 +144,8 @@ function resize() {
 }
 addEventListener('resize', resize);
 resize();
+
+if (TOUCH) $('subtitle').textContent = '点「停机刹车」松开刹车，把右下油门推到顶，55 节时把左下摇杆往下拖离地，离地后左右拖动保持机翼水平。';
 
 $('start').onclick = () => {
   running = true;
